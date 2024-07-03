@@ -1,0 +1,7 @@
+void deInterleaveData(vector<vector<double>>& mic_data, const vector<double>& interleaved_data) {
+    for (int i = 0; i < num_samples; i++) {
+        for (int j = 0; j < num_microphones; j++) {
+            mic_data[j][i] = interleaved_data[i * num_microphones + j];
+        }
+    }
+}
