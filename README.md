@@ -79,7 +79,7 @@ Implementing the MUSIC algorithm in real-time posed several challenges:
 
 ### Code Snippet:
 
-```
+```python
 import sys
 import webrtcvad
 import numpy as np
