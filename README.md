@@ -66,6 +66,105 @@ Implementing the MUSIC algorithm in real-time posed several challenges:
 3. **Resource Constraints**:
    The i.MX 8M Mini has limited computational resources, requiring efficient code optimization.
 
+## Custom Implementation of DOA - MUSIC Algorithm in Python
+
+### Dependencies
+1. ```webrtcvad```: WebRTC Voice Activity Detection for filtering speech signals.
+2. ```numpy```: For numerical operations.
+3. ```pyroomacoustics```: For signal processing and DOA estimation.
+4. ```matplotlib```: For plotting the results.
+5. ```mic_array```: Custom module to interface with the microphone array hardware.
+6. ```pixel_ring```: To visualize the detected direction on an LED ring.
+
+
+### Code Snippet:
+
+```
+import sys
+import webrtcvad
+import numpy as np
+from mic_array import MicArray
+from pixel_ring import pixel_ring
+import pyroomacoustics as pra
+import matplotlib.pyplot as plt
+
+
+RATE = 16000
+CHANNELS = 6
+VAD_FRAMES = 10     # ms
+DOA_FRAMES = 200    # ms
+
+
+def main():
+    vad = webrtcvad.Vad(3)
+
+    speech_count = 0
+    chunks = []
+    doa_chunks = int(DOA_FRAMES / VAD_FRAMES)
+    #l=np.array([[0,0], [0,45.7], [45.7,45.7], [45.7,0]])
+    l=np.array([[0, -0.0457, -0.0457, 0], 
+                [0, 0, -0.0457, -0.0457],
+                [0,0,0,0]])
+    c = 343.    # speed of sound
+    fs = 16000  # sampling frequency
+    nfft = 256  # FFT size
+    freq_range = [300, 3500]  
+    #CHUNK_SIZE = RATE * VAD_FRAMES / 1000
+    CHUNK_SIZE=16384
+    chunks = []  
+    ch4=[]
+
+    try:
+        with MicArray(RATE, CHANNELS, CHUNK_SIZE )  as mic:
+            for chunk in mic.read_chunks():
+                # Use single channel audio to detect voice activity
+                #if vad.is_speech(chunk[0::CHANNELS].tobytes(), RATE):
+                #    speech_count += 1
+                #    sys.stdout.write('1')
+                #else:
+                #    sys.stdout.write('0')
+
+                channel_rfft = []
+                for channel in range(1,5):
+                    channel_data = chunk[channel::CHANNELS]  # Extract the current channel
+                    ch4.append(channel_data)
+                    channel_fft = np.fft.rfft(channel_data)
+                    channel_rfft.append(channel_fft)
+                ch4_nparray = np.array(ch4)
+                print("before = ", ch4_nparray.shape)
+                print("after = ", ch4_nparray.shape)
+                
+                X = np.array( [ pra.transform.stft.analysis(signal, nfft, nfft//2).T for signal in ch4_nparray ] )
+                print("Shape of X = ", X.shape)
+                doa = pra.doa.music.MUSIC(l, RATE, nfft, c=c, num_src=1, mode='near')
+
+                sys.stdout.flush()                
+                doa.locate_sources(X)
+                #doa.polar_plt_dirac()
+                print("Azimuth:", doa.azimuth_recon / np.pi * 180.0, "degrees")
+                plt.title("normmusic")
+                ch4_nparray=[0]
+                #if len(chunks) == doa_chunks:
+                #    if speech_count > (doa_chunks / 2):
+
+                        #direction = mic.get_direction(frames)
+                        #pixel_ring.set_direction(direction)
+                        #print('\n{}'.format(int(direction)))
+
+                    #speech_count = 0
+                
+
+    except KeyboardInterrupt:
+        pass
+        
+    pixel_ring.off()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+
 ### Custom C++ Code Development
 
 To address these challenges, we developed a custom C++ codebase to implement the MUSIC algorithm on the phyBOARD®-Polis i.MX 8M Mini:
